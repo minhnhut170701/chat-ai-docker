@@ -17,6 +17,7 @@ export const chatDetailSliceCreate = async (data: {
   userInput: string;
   role: string;
   chatId: string;
+  image?: string;
 }) => {
   try {
     await chatDetailApi.createChat(data);
@@ -28,6 +29,7 @@ export const chatDetailSliceCreate = async (data: {
 export const continueChat = async (data: {
   chatId: string;
   inputChat: string;
+  image?: string;
 }) => {
   try {
     await chatDetailApi.continueChat(data);

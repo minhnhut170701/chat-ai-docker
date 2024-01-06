@@ -5,12 +5,12 @@ import { svelte } from "@sveltejs/vite-plugin-svelte";
 export default defineConfig({
   plugins: [svelte()],
   server: {
-    port: 8080,
+    port: 8000,
     open: true,
     host: "0.0.0.0",
     proxy: {
       "/api": {
-        target: "https://chat-server-4nuldhdlqa-uc.a.run.app",
+        target: "http://localhost:3005",
         changeOrigin: true,
       },
     },

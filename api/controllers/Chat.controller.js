@@ -1,11 +1,9 @@
-import {
-  VertexAI,
-  HarmBlockThreshold,
-  HarmCategory,
-} from "@google-cloud/vertexai";
+import { VertexAI } from "@google-cloud/vertexai";
+
 import config from "../configs/index.js";
 import ChatInfo from "../models/ChatInfo.model.js";
 import Chat from "../models/Chat.model.js";
+
 import { sendResponse } from "../utils/helper.js";
 
 const { styleResponse } = config;
@@ -13,9 +11,8 @@ const { styleResponse } = config;
 const initConfig = {
   projectId: process.env.GOOGLE_SERVICE_ID,
   location: "asia-northeast1",
-  model: "gemini-pro",
-  // image: "gs://generativeai-downloads/images/scones.jpg",
-  // mimeType: "image/jpeg"
+  model: "gemini-pro-vision",
+  mimeType: "image/jpeg",
 };
 
 const vertexAI = new VertexAI({
@@ -26,73 +23,35 @@ const vertexAI = new VertexAI({
 const generativeModel = vertexAI.preview.getGenerativeModel({
   model: initConfig.model,
   generation_config: {
-    max_output_tokens: 8192,
     temperature: 0.2,
   },
-
-  safety_settings: [
-    {
-      category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-      threshold: HarmBlockThreshold.BLOCK_NONE,
-    },
-    {
-      category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-      threshold: HarmBlockThreshold.BLOCK_NONE,
-    },
-
-    {
-      category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
-      threshold: HarmBlockThreshold.BLOCK_NONE,
-    },
-    {
-      category: HarmCategory.HARM_CATEGORY_HARASSMENT,
-      threshold: HarmBlockThreshold.BLOCK_NONE,
-    },
-    {
-      category: HarmCategory.HARM_CATEGORY_UNSPECIFIED,
-      threshold: HarmBlockThreshold.BLOCK_NONE,
-    },
-  ],
 });
 
-// const createChatGeminiAI = async (textPart) => {
-//
-//   const request = {
-//     contents: [{ role: "user", parts: [textPart] }],
-//   };
-//   try {
-//     const responseStream = await generativeVisionModel.generateContentStream(
-//       request
-//     );
-
-//     // Wait for the response stream to complete
-//     const aggregatedResponse = await responseStream.response;
-
-//     // Select the text from the response
-//     let fullTextResponse =
-//       aggregatedResponse.candidates[0].content.parts[0].text;
-
-//     // Convert the text to HTML
-//     // fullTextResponse = fullTextResponse
-//     //   .replace(/\n/g, "<br/>")
-//     //   .replace(/```javascript([^`]*)```/g, "<pre><code>$1</code></pre>");
-//     return fullTextResponse;
-//   } catch (error) {
-//     sendResponse(res, 500, { error: error.message });
-//   }
-// };
-
-const createChatGeminiAI = async (textPart) => {
-  const chat = generativeModel.startChat({});
+async function createChatGeminiAI(textPart, image = "") {
+  const filePart = {
+    fileData: {
+      fileUri: image,
+      mimeType: initConfig.mimeType,
+    },
+  };
   try {
-    const userMessage0 = [{ text: textPart }];
-    const streamResult0 = await chat.sendMessageStream(userMessage0);
-    const response = await streamResult0.response;
-    return response.candidates[0].content.parts[0].text;
+    const request = {
+      contents: [
+        { role: "user", parts: !image ? [textPart] : [textPart, filePart] },
+      ],
+    };
+    const responseStream = await generativeModel.generateContentStream(request);
+
+    const aggregatedResponse = await responseStream.response;
+
+    const fullTextResponse =
+      aggregatedResponse.candidates[0].content.parts[0].text;
+
+    return fullTextResponse;
   } catch (error) {
-    sendResponse(res, 500, { error: error.message });
+    console.log(error);
   }
-};
+}
 
 const getChatDetail = async (req, res) => {
   const { chatId } = req.params;
@@ -108,7 +67,8 @@ const getChatDetail = async (req, res) => {
 };
 
 const createChat = async (req, res) => {
-  const { userInput, role, chatId } = req.body;
+  const { userInput, role, chatId, image } = req.body;
+
   if (userInput.length > 1000) {
     return sendResponse(res, 500, { message: "Input too long" });
   }
@@ -120,7 +80,12 @@ const createChat = async (req, res) => {
     ${userInput || ""}
     `;
   try {
-    const fullTextResponse = await createChatGeminiAI(textPart);
+    let fullTextResponse = "";
+    if (image) {
+      fullTextResponse = await createChatGeminiAI(textPart, image);
+    } else {
+      fullTextResponse = await createChatGeminiAI(textPart);
+    }
     const chatInfo = await ChatInfo.findById(chatId).populate("chatContent");
     if (!chatInfo || !fullTextResponse) {
       return res.status(404).json({ error: "ChatInfo not found" });
@@ -145,14 +110,14 @@ const createChat = async (req, res) => {
 
     await newChatDetail.save();
     await chatInfo.save();
-    sendResponse(res, 200, chatId);
+    sendResponse(res, 200, { message: "success" });
   } catch (error) {
-    sendResponse(res, 500, { message: error.message });
+    sendResponse(res, 500, { message: error });
   }
 };
 
 const continueChat = async (req, res) => {
-  const { inputChat, chatId } = req.body;
+  const { inputChat, chatId, image } = req.body;
   try {
     const chatInfo = await ChatInfo.findById(chatId).populate("chatContent");
     if (!chatInfo) {
@@ -168,7 +133,12 @@ const continueChat = async (req, res) => {
     ${previousChat ? previousChat.restChat : ""}. \n\n  ${inputChat || ""}
     `;
 
-    const valueChat = await createChatGeminiAI(textPart);
+    let valueChat = "";
+    if (image) {
+      valueChat = await createChatGeminiAI(textPart, image);
+    } else {
+      valueChat = await createChatGeminiAI(textPart);
+    }
 
     let restChat = previousChat
       ? `${previousChat.restChat}. \n\n  ${inputChat}.\n\n  ${valueChat} \n\n `

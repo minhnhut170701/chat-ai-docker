@@ -12,6 +12,12 @@ const ChatInfoSchema = new mongoose.Schema(
         ref: "Chat",
       },
     ],
+    imageList: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Image",
+      },
+    ],
   },
   {
     timestamps: true,

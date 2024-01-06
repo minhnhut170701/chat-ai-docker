@@ -10,7 +10,7 @@ dotenv.config();
 const app = express();
 app.use(
   cors({
-    origin: "https://chat-client-4nuldhdlqa-uc.a.run.app",
+    origin: [process.env.ORIGIN_URL_1, process.env.ORIGIN_URL_2],
     optionsSuccessStatus: 200,
   })
 );
