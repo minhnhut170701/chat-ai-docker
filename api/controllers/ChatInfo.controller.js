@@ -43,25 +43,37 @@ async function uploadImage(filename) {
       .bucket(bucketName)
       .file(file.name)
       .move(`userInputImage/${file.name}`, moveOptions);
-    return file.publicUrl();
+    const originUrl = file.publicUrl();
+    const publicUrl = originUrl.replace(
+      `${bucketName}/`,
+      `${bucketName}/userInputImage/`
+    );
+    return publicUrl;
   } catch (error) {
-    removeDataFromUploadsFolder(filename.filename);
+    removeDataFromUploadsFolder(filename);
     console.error("Error uploading image:", error);
   }
 }
 
 // TODO: Delete image from bucket
 
-// async function deleteImage(fileUrl) {
-//   try {
-//     const bucket = storage.bucket(bucketName);
-//     const file = bucket.file(fileUrl); // Assumes fileUrl is a publicly accessible URL
-//     await file.delete();
-//     console.log("Image deleted successfully");
-//   } catch (error) {
-//     console.error("Error deleting image:", error);
-//   }
-// }
+async function deleteImage(fileUrl) {
+  // write code here
+  try {
+    // 1. Extract the file name from the file URL
+    const fileName = fileUrl.split("/").pop();
+    // 2. Construct the full file path within the bucket
+    const fullFilePath = `userInputImage/${fileName}`;
+    // 3. Get a reference to the file object in the bucket
+    const file = storage.bucket(bucketName).file(fullFilePath);
+    // 4. Delete the file
+    await file.delete();
+    return true;
+  } catch (error) {
+    console.error("Error deleting image:", error);
+    return false;
+  }
+}
 
 const createChat = async (req, res) => {
   const { userId } = req.body;
@@ -97,6 +109,7 @@ const removeChat = async (req, res) => {
 
     // Remove all associated ChatDetail documents
     await Chat.deleteMany({ _id: { $in: chat.chatContent } });
+    await Image.deleteMany({ _id: { $in: chat.imageList } });
 
     await User.findByIdAndUpdate(userId, { $pull: { userChatList: chatId } });
     sendResponse(res, 200, { message: "Chat deleted" });
@@ -187,11 +200,15 @@ const uploadImageToStorage = async (req, res) => {
 
   try {
     if (!imageUpload || !chatId) {
+      removeDataFromUploadsFolder(imageUpload.filename);
       sendResponse(res, 500, { message: "Upload file to server fail" });
+      return;
     }
     const imageStore = await uploadImage(imageUpload.path);
     if (!imageStore) {
+      removeDataFromUploadsFolder(imageUpload.filename);
       sendResponse(res, 500, { message: "Upload file to storage fail" });
+      return;
     }
     const chatInfo = await ChatInfo.findById(chatId);
 
@@ -211,6 +228,27 @@ const uploadImageToStorage = async (req, res) => {
   }
 };
 
+const removeImageStore = async (req, res) => {
+  const { imageId, chatId } = req.body;
+  try {
+    const image = await Image.findById(imageId);
+    if (!image) {
+      sendResponse(res, 200, { message: "Image not found" });
+      return;
+    }
+    const removeImgStore = await deleteImage(image.imageURL);
+    if (!removeImgStore) {
+      sendResponse(res, 200, { message: "Image can't remove" });
+      return;
+    }
+    await ChatInfo.findByIdAndUpdate(chatId, { $pull: { imageList: imageId } });
+    await Image.findByIdAndDelete(imageId);
+    sendResponse(res, 200, { message: "Image deleted" });
+  } catch (error) {
+    sendResponse(res, 500, { message: error.message });
+  }
+};
+
 export const chatInfoController = {
   createChat,
   removeChat,
@@ -218,4 +256,5 @@ export const chatInfoController = {
   clearChat,
   getAllChatDetail,
   uploadImageToStorage,
+  removeImageStore,
 };

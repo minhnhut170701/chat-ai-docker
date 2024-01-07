@@ -1,6 +1,6 @@
 <script lang="ts">
   import Icon from "@iconify/svelte";
-  import { onMount } from "svelte";
+  import { onMount, afterUpdate } from "svelte";
   import github from "svelte-highlight/styles/github";
   import { RingLoader } from "svelte-loading-spinners";
   import FormatChat from "~/components/FormatChat/FormatChat.svelte";
@@ -18,11 +18,13 @@
     deleteChat,
     getChatInfoDetail,
     setListChat,
+    uploadImage,
   } from "../../store/chatSlice";
   let showPopup = false;
   let chatDetail: any = [];
   let currentChatId: string = "";
   let chatInput: string = "";
+  let imageData: any = null;
   let previousChatInputs: { [key: string]: string } = {};
   let loading: boolean = false;
   let showModal = false;
@@ -62,15 +64,32 @@
     }
   };
 
+  const handleUploadImage = async (
+    e: Event & {
+      currentTarget: EventTarget & HTMLInputElement;
+    }
+  ) => {
+    try {
+      if (e.currentTarget.files) {
+        await uploadImage(e.currentTarget.files[0], currentChatId);
+        await getChatDetail(currentChatId, false);
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
   const handleChat = async (newChat: boolean) => {
     const data = {
       chatId: currentChatId,
       inputChat: chatInput,
     };
+
     const dataNewChat = {
       userInput: chatInput,
       role: "assistant",
       chatId: currentChatId,
+      image: "",
     };
     try {
       chatInput = "";
@@ -123,6 +142,10 @@
       console.log(error);
     }
   };
+
+  // afterUpdate(() => {
+  //   console.log("chatSlice", $chatSlice);
+  // });
 </script>
 
 <svelte:head>
@@ -262,6 +285,21 @@
           class="flex flex-row space-x-4"
           on:submit|preventDefault={handleInputSubmit}
         >
+          <div class="tooltip tooltip-right" data-tip="Upload image">
+            <button
+              class="p-2 bg-white rounded-full w-10 h-10 flex justify-center items-center relative"
+              type="button"
+            >
+              <input
+                type="file"
+                name="file"
+                bind:value={imageData}
+                on:change={handleUploadImage}
+                class="file-input file-input-ghost w-full h-full outline-none opacity-0 absolute top-0 left-0"
+              />
+              <Icon icon="gridicons:add-image" />
+            </button>
+          </div>
           <input
             type="text"
             placeholder="Enter a prompt here..."

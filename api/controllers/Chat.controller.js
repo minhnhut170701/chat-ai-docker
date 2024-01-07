@@ -74,11 +74,12 @@ const createChat = async (req, res) => {
   }
   const responseStyle = styleResponse.find((item) => item.role === role);
 
-  const textPart = `
-    ${role || ""}.\n
+  const textPart = {
+    text: ` ${role || ""}.\n
     ${responseStyle.styleResponse || ""}.\n
-    ${userInput || ""}
-    `;
+    ${userInput || ""}`,
+  };
+
   try {
     let fullTextResponse = "";
     if (image) {
@@ -129,9 +130,10 @@ const continueChat = async (req, res) => {
         ? chatInfo.chatContent[chatInfo.chatContent.length - 1]
         : null;
 
-    const textPart = `
-    ${previousChat ? previousChat.restChat : ""}. \n\n  ${inputChat || ""}
-    `;
+    const textPart = {
+      text: `${previousChat ? previousChat.restChat : ""}. \n\n  
+      ${inputChat || ""}`,
+    };
 
     let valueChat = "";
     if (image) {

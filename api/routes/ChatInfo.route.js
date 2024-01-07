@@ -23,4 +23,10 @@ chatInfoRouter.post(
   chatInfoController.uploadImageToStorage
 );
 
+chatInfoRouter.delete(
+  "/delete/image",
+  Authorization,
+  chatInfoController.removeImageStore
+);
+
 export default chatInfoRouter;

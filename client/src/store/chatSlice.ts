@@ -10,6 +10,7 @@ export const chatSlice = writable({
       _id: "",
       chatName: "",
       chatContent: [{ userChat: "", botChat: "" }],
+      imageList: [{ url: "" }],
     },
   ],
 });
@@ -35,7 +36,8 @@ export const addNewChat = async (userId: string) => {
           {
             _id: chat.data._id,
             chatName: chat.data.chatName,
-            chatContent: [{ userChat: "", botChat: "" }],
+            chatContent: [],
+            imageList: [],
           },
         ],
       };
@@ -78,6 +80,33 @@ export const getChatInfoDetail = async (chatId: string) => {
       };
     });
     return chatDetail.data;
+  } catch (error) {
+    return error;
+  }
+};
+
+export const uploadImage = async (file: File, chatId: string) => {
+  try {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("chatId", chatId);
+    const image = await chatApi.uploadImageOnCloud(formData);
+    console.log(image.data.imageString);
+    chatSlice.update((state) => {
+      return {
+        ...state,
+        data: state.data.map((chat) => {
+          if (chat._id === chatId) {
+            return {
+              ...chat,
+              imageList: [...chat.imageList, { url: image.data.imageString }],
+            };
+          } else {
+            return chat;
+          }
+        }),
+      };
+    });
   } catch (error) {
     return error;
   }

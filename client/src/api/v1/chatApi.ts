@@ -43,6 +43,17 @@ class ChatApi<T> extends ResourceApi<T> {
       data: data,
     });
   }
+
+  uploadImageOnCloud(data: any) {
+    return axiosClient({
+      url: `${this.uri}/upload/image`,
+      method: "POST",
+      data: data,
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+  }
 }
 
 export default ChatApi;
