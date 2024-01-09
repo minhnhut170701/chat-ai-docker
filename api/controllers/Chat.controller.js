@@ -34,11 +34,11 @@ async function createChatGeminiAI(textPart, image = "") {
       mimeType: initConfig.mimeType,
     },
   };
+
   try {
+    const imageExist = image ? [textPart, filePart] : [textPart];
     const request = {
-      contents: [
-        { role: "user", parts: !image ? [textPart] : [textPart, filePart] },
-      ],
+      contents: [{ role: "user", parts: imageExist }],
     };
     const responseStream = await generativeModel.generateContentStream(request);
 
@@ -46,7 +46,6 @@ async function createChatGeminiAI(textPart, image = "") {
 
     const fullTextResponse =
       aggregatedResponse.candidates[0].content.parts[0].text;
-
     return fullTextResponse;
   } catch (error) {
     console.log(error);

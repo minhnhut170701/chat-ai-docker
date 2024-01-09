@@ -9,8 +9,8 @@ export const chatSlice = writable({
     {
       _id: "",
       chatName: "",
-      chatContent: [{ userChat: "", botChat: "" }],
-      imageList: [{ url: "" }],
+      chatContent: [{ userChat: "", botChat: "", imageSrc: "" }],
+      imageBlob: "",
     },
   ],
 });
@@ -18,7 +18,15 @@ export const chatSlice = writable({
 export const setListChat = async (userId: string) => {
   try {
     const chatList = await chatApi.getChatInfo({ userId: userId });
-    chatSlice.set({ loading: false, data: chatList.data.chatInfo });
+    chatSlice.set({
+      loading: false,
+      data: chatList.data.chatInfo.map((item: any) => ({
+        chatName: item.chatName,
+        _id: item._id,
+        chatContent: [],
+        // imageList: [],
+      })),
+    });
   } catch (error) {
     chatSlice.set({ loading: false, data: [] });
     return error;
@@ -37,7 +45,7 @@ export const addNewChat = async (userId: string) => {
             _id: chat.data._id,
             chatName: chat.data.chatName,
             chatContent: [],
-            imageList: [],
+            imageBlob: "",
           },
         ],
       };
@@ -80,8 +88,8 @@ export const getChatInfoDetail = async (chatId: string) => {
       };
     });
     return chatDetail.data;
-  } catch (error) {
-    return error;
+  } catch (error: any) {
+    throw new Error(error);
   }
 };
 
@@ -91,24 +99,15 @@ export const uploadImage = async (file: File, chatId: string) => {
     formData.append("file", file);
     formData.append("chatId", chatId);
     const image = await chatApi.uploadImageOnCloud(formData);
-    console.log(image.data.imageString);
     chatSlice.update((state) => {
       return {
         ...state,
-        data: state.data.map((chat) => {
-          if (chat._id === chatId) {
-            return {
-              ...chat,
-              imageList: [...chat.imageList, { url: image.data.imageString }],
-            };
-          } else {
-            return chat;
-          }
-        }),
+        imageBlob: image.data.source.imageSrc,
       };
     });
-  } catch (error) {
-    return error;
+    return image.data.source.imageSrc;
+  } catch (error: any) {
+    throw new Error(error);
   }
 };
 

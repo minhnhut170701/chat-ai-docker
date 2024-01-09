@@ -1,6 +1,6 @@
 <script lang="ts">
   import Icon from "@iconify/svelte";
-  import { onMount, afterUpdate } from "svelte";
+  import { onMount, afterUpdate, onDestroy } from "svelte";
   import github from "svelte-highlight/styles/github";
   import { RingLoader } from "svelte-loading-spinners";
   import FormatChat from "~/components/FormatChat/FormatChat.svelte";
@@ -25,11 +25,15 @@
   let currentChatId: string = "";
   let chatInput: string = "";
   let imageData: any = null;
+  let showPreviewImage = false;
   let previousChatInputs: { [key: string]: string } = {};
   let loading: boolean = false;
   let showModal = false;
   let loadingNewPage = false;
   let closeToolBars = false;
+  let inputImage: any = null;
+  let textarea: HTMLTextAreaElement;
+  let imageSave: any = null;
 
   onMount(async () => {
     try {
@@ -42,9 +46,9 @@
   const getChatDetail = async (chatId: string, newPage: boolean) => {
     if (newPage) loadingNewPage = true;
     try {
-      const res = await getChatInfoDetail(chatId);
-      chatDetail = res;
+      const detailData = await getChatInfoDetail(chatId);
       currentChatId = chatId;
+      chatDetail = detailData;
       if (newPage) loadingNewPage = false;
     } catch (error) {
       console.log(error);
@@ -69,36 +73,66 @@
       currentTarget: EventTarget & HTMLInputElement;
     }
   ) => {
-    try {
-      if (e.currentTarget.files) {
-        await uploadImage(e.currentTarget.files[0], currentChatId);
-        await getChatDetail(currentChatId, false);
-      }
-    } catch (error) {
-      console.log(error);
+    if (e.currentTarget.files) {
+      showPreviewImage = true;
+      const reader = new FileReader();
+      reader.addEventListener("load", function () {
+        imageData = reader.result;
+      });
+      reader.readAsDataURL(e.currentTarget.files[0]);
+      imageSave = e.currentTarget.files[0];
+      return;
     }
+  };
+  const uploadChatImage = async (
+    image: File,
+    newChat: boolean,
+    data: any,
+    dataNewChat: any
+  ) => {
+    const imgSrc = await uploadImage(image, currentChatId);
+    if (imgSrc) {
+      if (newChat) {
+        dataNewChat.image = imgSrc;
+      } else {
+        data.image = imgSrc;
+      }
+    }
+  };
+
+  const continueExistingChat = async (data: any) => {
+    await continueChat(data);
+    await getChatDetail(currentChatId, false);
+  };
+
+  const createNewChat = async (dataNewChat: any) => {
+    await chatDetailSliceCreate(dataNewChat);
+    await getChatDetail(currentChatId, false);
   };
 
   const handleChat = async (newChat: boolean) => {
     const data = {
       chatId: currentChatId,
-      inputChat: chatInput,
+      inputChat: previousChatInputs[currentChatId],
+      image: "",
     };
-
     const dataNewChat = {
-      userInput: chatInput,
+      userInput: previousChatInputs[currentChatId],
       role: "assistant",
       chatId: currentChatId,
       image: "",
     };
+
+    if (imageSave) {
+      await uploadChatImage(imageSave, newChat, data, dataNewChat);
+    }
+
     try {
-      chatInput = "";
       if (!newChat) {
-        await continueChat(data);
+        await continueExistingChat(data);
       } else {
-        await chatDetailSliceCreate(dataNewChat);
+        await createNewChat(dataNewChat);
       }
-      await getChatDetail(currentChatId, false);
     } catch (error) {
       console.log(error);
     }
@@ -106,9 +140,10 @@
 
   const handleInputSubmit = async () => {
     loading = true;
-
     if (currentChatId) {
       previousChatInputs[currentChatId] = chatInput;
+      chatInput = "";
+      clearPreviewImage();
       if (chatDetail.length > 0) {
         await handleChat(false);
         previousChatInputs[currentChatId] = "";
@@ -125,6 +160,8 @@
       previousChatInputs[currentChatId] = "";
       loading = false;
     }
+    imageData = null;
+    imageSave = null;
   };
 
   const removeChat = async (chatId: string) => {
@@ -146,6 +183,31 @@
   // afterUpdate(() => {
   //   console.log("chatSlice", $chatSlice);
   // });
+
+  const clearPreviewImage = () => {
+    showPreviewImage = false;
+    inputImage.value = null;
+  };
+
+  function autoExpand() {
+    textarea.style.height = `35px`;
+    // check when the textarea's scrollHeight is bigger than its height
+    if (textarea.scrollHeight > textarea.offsetHeight) {
+      if (textarea.scrollHeight < 150) {
+        textarea.style.height = `${textarea.scrollHeight}px`;
+      } else {
+        textarea.style.height = `150px`;
+      }
+    }
+  }
+
+  onMount(() => {
+    textarea.addEventListener("input", autoExpand);
+  });
+
+  onDestroy(() => {
+    textarea.removeEventListener("input", autoExpand);
+  });
 </script>
 
 <svelte:head>
@@ -205,8 +267,9 @@
               </p>
             </UIModal>
             <button
+              class="w-[80%]"
               on:click={() => getChatDetail(chat._id, true)}
-              class="w-[80%]">{chat.chatName} {index + 1}</button
+              >{chat.chatName} {index + 1}</button
             >
             <button
               on:click={() => (showModal = !showModal)}
@@ -259,13 +322,23 @@
     </div>
   {:else}
     <div
-      class={` overflow-hidden h-full ${!closeToolBars ? "w-[70%]" : "w-full"}`}
+      class={` overflow-hidden h-full ${
+        !closeToolBars ? "w-[70%]" : "w-full"
+      } relative`}
     >
-      <div class="h-[85%] p-4 overflow-y-auto">
+      <div
+        class={`${
+          showPreviewImage ? "h-[70%]" : "h-[80%]"
+        } p-4 overflow-y-auto`}
+      >
         {#each chatDetail as chat, index (index)}
           <div class="mb-4 text-white">
             {#if chat.userChat}
-              <UIChatBox contentChat={chat.userChat} typeChat="user" />
+              <UIChatBox
+                contentChat={chat.userChat}
+                typeChat="user"
+                imageChat={chat.imageSrc}
+              />
             {/if}
             {#if chat.botChat}
               <UIChatBox formatChat={FormatChat} botChat={chat.botChat} />
@@ -276,13 +349,18 @@
           <UIChatBox
             contentChat={previousChatInputs[currentChatId]}
             typeChat="user"
+            imageChat={imageData}
           />
           <UIChatBox contentChat="Thinking...." typeChat="bot" />
         {/if}
       </div>
-      <div class="mt-5 p-2 h-14">
+      <div
+        class={`mt-5 p-3  absolute ${
+          showPreviewImage ? "bottom-4" : "-bottom-2"
+        } left-0 w-full `}
+      >
         <form
-          class="flex flex-row space-x-4"
+          class="flex flex-row space-x-4 items-center p-4"
           on:submit|preventDefault={handleInputSubmit}
         >
           <div class="tooltip tooltip-right" data-tip="Upload image">
@@ -293,19 +371,48 @@
               <input
                 type="file"
                 name="file"
-                bind:value={imageData}
+                bind:this={inputImage}
                 on:change={handleUploadImage}
                 class="file-input file-input-ghost w-full h-full outline-none opacity-0 absolute top-0 left-0"
               />
               <Icon icon="gridicons:add-image" />
             </button>
           </div>
-          <input
-            type="text"
-            placeholder="Enter a prompt here..."
-            bind:value={chatInput}
-            class="p-2 flex-1 border-2 outline-none border-blue-400 rounded-lg bg-transparent text-white"
-          />
+          <div
+            class="flex-1 border-2 outline-none border-blue-400 rounded-lg bg-transparent text-white flex flex-col"
+          >
+            <textarea
+              placeholder="Enter a prompt here..."
+              bind:this={textarea}
+              bind:value={chatInput}
+              on:keydown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleInputSubmit();
+                }
+              }}
+              class="pl-2 pr-2 pt-1 w-full bg-transparent outline-none text-white autoexpand resize-none h-[35px]"
+            />
+            {#if showPreviewImage}
+              <div class="p-2 max-w-[100px] w-full h-[100px] relative mt-2">
+                <button
+                  class="absolute -top-4 -right-7 w-10 h-10 z-10"
+                  on:click={clearPreviewImage}
+                >
+                  <Icon icon="carbon:close-outline" />
+                </button>
+                <img
+                  src={imageData}
+                  alt="Preview"
+                  class=" w-full h-full object-contain"
+                />
+                <div
+                  class="absolute top-0 left-0 w-full h-full bg-black opacity-50 object-contain"
+                ></div>
+              </div>
+            {/if}
+          </div>
+
           <button
             class="w-[10%] p-2 bg-blue-400 text-white font-bold rounded-lg outline-none hover:bg-blue-500 transition-all duration-300"
             >Submit</button

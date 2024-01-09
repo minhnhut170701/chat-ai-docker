@@ -48,7 +48,11 @@ async function uploadImage(filename) {
       `${bucketName}/`,
       `${bucketName}/userInputImage/`
     );
-    return publicUrl;
+    const result = {
+      blobUrl: `gs://${bucketName}/userInputImage/${file.name}`,
+      previewUrl: publicUrl,
+    };
+    return result;
   } catch (error) {
     removeDataFromUploadsFolder(filename);
     console.error("Error uploading image:", error);
@@ -109,6 +113,10 @@ const removeChat = async (req, res) => {
 
     // Remove all associated ChatDetail documents
     await Chat.deleteMany({ _id: { $in: chat.chatContent } });
+    const imageList = await Image.find({ _id: { $in: chat.imageList } });
+    imageList.forEach((image) => {
+      deleteImage(image.imageURL);
+    });
     await Image.deleteMany({ _id: { $in: chat.imageList } });
 
     await User.findByIdAndUpdate(userId, { $pull: { userChatList: chatId } });
@@ -124,13 +132,18 @@ const getAllChatDetail = async (req, res) => {
     const chatInfo = await ChatInfo.findById(chatInfoId)
       .populate("chatContent")
       .lean();
-    if (!chatInfo) {
+    const chatImageList = await Image.find({
+      _id: { $in: chatInfo.imageList },
+    });
+    if (!chatInfo || !chatImageList) {
       return sendResponse(res, 404, { message: "Chat not found" });
     }
-    const filterChatContent = chatInfo.chatContent.map((chat) => ({
+    const filterChatContent = chatInfo.chatContent.map((chat, i) => ({
       userChat: chat.sender,
       botChat: chat.botResponse,
+      imageSrc: chatImageList[i] ? chatImageList[i].imageURL : null,
     }));
+
     sendResponse(res, 200, filterChatContent);
   } catch (error) {
     sendResponse(res, 500, { message: error.message });
@@ -161,7 +174,6 @@ const getChat = async (req, res) => {
       return {
         _id: chatInfo._id,
         chatName: chatInfo.chatName,
-        chatContent: chatContent,
       };
     });
 
@@ -214,16 +226,21 @@ const uploadImageToStorage = async (req, res) => {
 
     const newImage = await Image({
       imageName: imageUpload.originalname,
-      imageURL: imageStore,
+      imageURL: imageStore.previewUrl,
     });
 
     chatInfo.imageList.push(newImage);
     await newImage.save();
     await chatInfo.save();
     removeDataFromUploadsFolder(imageUpload.filename);
-    sendResponse(res, 200, { imageString: imageStore });
+    sendResponse(res, 200, {
+      source: {
+        imageSrc: imageStore.blobUrl,
+        previewSrc: imageStore.previewUrl,
+      },
+    });
   } catch (error) {
-    console.error(error);
+    removeDataFromUploadsFolder(imageUpload.filename);
     res.status(500).json({ error: error.toString() });
   }
 };

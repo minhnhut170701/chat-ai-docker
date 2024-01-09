@@ -1,5 +1,4 @@
 <script lang="ts">
-  import type { SvelteComponent } from "svelte";
   import logoBot from "../../assets/logo.png";
   import userImg from "../../assets/user-img.avif";
 
@@ -7,6 +6,7 @@
   export let typeChat = "";
   export let formatChat: any = null;
   export let botChat = "";
+  export let imageChat: any = "";
 </script>
 
 {#if typeChat === "user"}
@@ -17,7 +17,18 @@
       class="w-full shadow-md rounded-lg p-4 flex flex-row items-center justify-end space-x-4 bg-[#27234d] text-white"
     >
       <div class="p-2 rounded-full flex items-center space-x-4">
-        <p>{contentChat || ""}</p>
+        <div class="flex flex-col space-y-3 items-end">
+          <p>{contentChat || ""}</p>
+          {#if imageChat}
+            <div class="p-4">
+              <img
+                src={imageChat}
+                alt="User Upload"
+                class="w-40 h-40 rounded-xl"
+              />
+            </div>
+          {/if}
+        </div>
         <img
           src={userImg}
           alt="user"
