@@ -6,6 +6,9 @@ const ChatSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    imageURL: {
+      type: String,
+    },
     botResponse: {
       type: String,
       required: true,

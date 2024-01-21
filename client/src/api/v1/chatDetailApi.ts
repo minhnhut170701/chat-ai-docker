@@ -17,6 +17,9 @@ class ChatApi<T> extends ResourceApi<T> {
     return axiosClient({
       url: `${this.uri}/create`,
       method: "POST",
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
       data: data,
     });
   }
@@ -25,6 +28,9 @@ class ChatApi<T> extends ResourceApi<T> {
     return axiosClient({
       url: `${this.uri}/continue`,
       method: "POST",
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
       data: data,
     });
   }

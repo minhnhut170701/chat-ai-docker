@@ -56,6 +56,20 @@
     }
   };
 
+  const setChatDetailData = async () => {
+    //  chatDetail = [...chatDetail, { userChat, botChat, imageSrc: imageSrc ? imageSrc : ""}]
+    try {
+      const detailData = await getChatInfoDetail(currentChatId);
+      if (chatDetail.length > 0) {
+        chatDetail[chatDetail.length - 1].botChat =
+          detailData[detailData.length - 1].botChat;
+      }
+      //  chatDetail = [...chatDetail, { userChat: chatInput, imageSrc: imageData }];
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
   const handleAddNewChat = async () => {
     try {
       await addNewChat($userSlice._id);
@@ -84,49 +98,30 @@
       return;
     }
   };
-  const uploadChatImage = async (
-    image: File,
-    newChat: boolean,
-    data: any,
-    dataNewChat: any
-  ) => {
-    const imgSrc = await uploadImage(image, currentChatId);
-    if (imgSrc) {
-      if (newChat) {
-        dataNewChat.image = imgSrc;
-      } else {
-        data.image = imgSrc;
-      }
-    }
-  };
 
   const continueExistingChat = async (data: any) => {
     await continueChat(data);
-    await getChatDetail(currentChatId, false);
+    // await getChatDetail(currentChatId, false);
   };
 
   const createNewChat = async (dataNewChat: any) => {
     await chatDetailSliceCreate(dataNewChat);
-    await getChatDetail(currentChatId, false);
+    // await getChatDetail(currentChatId, false);
   };
 
   const handleChat = async (newChat: boolean) => {
     const data = {
       chatId: currentChatId,
       inputChat: previousChatInputs[currentChatId],
-      image: "",
+      image: imageSave ? imageSave : "",
     };
+
     const dataNewChat = {
       userInput: previousChatInputs[currentChatId],
       role: "assistant",
       chatId: currentChatId,
-      image: "",
+      image: imageSave ? imageSave : "",
     };
-
-    if (imageSave) {
-      await uploadChatImage(imageSave, newChat, data, dataNewChat);
-    }
-
     try {
       if (!newChat) {
         await continueExistingChat(data);
@@ -139,26 +134,38 @@
   };
 
   const handleInputSubmit = async () => {
-    loading = true;
-    if (currentChatId) {
-      previousChatInputs[currentChatId] = chatInput;
-      chatInput = "";
-      clearPreviewImage();
-      if (chatDetail.length > 0) {
-        await handleChat(false);
-        previousChatInputs[currentChatId] = "";
-        loading = false;
+    try {
+      loading = true;
+      chatDetail = [
+        ...chatDetail,
+        {
+          userChat: chatInput,
+          imageSrc: imageData || "",
+        },
+      ];
+      if (currentChatId) {
+        previousChatInputs[currentChatId] = chatInput;
+        chatInput = "";
+        clearPreviewImage();
+        if (chatDetail.length > 0) {
+          await handleChat(false);
+        } else {
+          await handleChat(true);
+        }
       } else {
+        await handleAddNewChat();
+        currentChatId = $chatSlice.data[$chatSlice.data.length - 1]._id;
+        previousChatInputs[currentChatId] = chatInput;
+        clearPreviewImage();
+        chatInput = "";
         await handleChat(true);
-        previousChatInputs[currentChatId] = "";
-        loading = false;
       }
-    } else {
-      await handleAddNewChat();
-      previousChatInputs[currentChatId] = chatInput;
-      await handleChat(true);
-      previousChatInputs[currentChatId] = "";
+      await setChatDetailData();
       loading = false;
+      previousChatInputs[currentChatId] = "";
+    } catch (error) {
+      loading = false;
+      console.log("error", error);
     }
     imageData = null;
     imageSave = null;
@@ -179,10 +186,6 @@
       console.log(error);
     }
   };
-
-  // afterUpdate(() => {
-  //   console.log("chatSlice", $chatSlice);
-  // });
 
   const clearPreviewImage = () => {
     showPreviewImage = false;
@@ -346,11 +349,6 @@
           </div>
         {/each}
         {#if loading && previousChatInputs[currentChatId]}
-          <UIChatBox
-            contentChat={previousChatInputs[currentChatId]}
-            typeChat="user"
-            imageChat={imageData}
-          />
           <UIChatBox contentChat="Thinking...." typeChat="bot" />
         {/if}
       </div>

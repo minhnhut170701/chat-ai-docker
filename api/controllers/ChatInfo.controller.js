@@ -1,7 +1,4 @@
 import { Storage } from "@google-cloud/storage";
-import fs from "fs";
-import path, { dirname } from "path";
-import { fileURLToPath } from "url";
 import ChatInfo from "../models/ChatInfo.model.js";
 import Chat from "../models/Chat.model.js";
 import User from "../models/User.model.js";
@@ -10,56 +7,6 @@ import { sendResponse } from "../utils/helper.js";
 
 const bucketName = process.env.BUCKET_NAME;
 const storage = new Storage();
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-const removeDataFromUploadsFolder = (filename) => {
-  const uploadsFolderPath = path.join(__dirname, "..", "uploads");
-  const filePath = path.join(uploadsFolderPath, filename);
-  fs.unlink(filePath, (err) => {
-    if (err) {
-      console.error("Error removing file:", err);
-    } else {
-      console.log("File removed successfully");
-    }
-  });
-};
-
-async function uploadImage(filename) {
-  try {
-    const options = {
-      metadata: {
-        contentType: "image/jpeg",
-      },
-    };
-
-    const moveOptions = {
-      preconditionOpts: {
-        ifGenerationMatch: 0,
-      },
-    };
-    const [file] = await storage.bucket(bucketName).upload(filename, options);
-    await storage
-      .bucket(bucketName)
-      .file(file.name)
-      .move(`userInputImage/${file.name}`, moveOptions);
-    const originUrl = file.publicUrl();
-    const publicUrl = originUrl.replace(
-      `${bucketName}/`,
-      `${bucketName}/userInputImage/`
-    );
-    const result = {
-      blobUrl: `gs://${bucketName}/userInputImage/${file.name}`,
-      previewUrl: publicUrl,
-    };
-    return result;
-  } catch (error) {
-    removeDataFromUploadsFolder(filename);
-    console.error("Error uploading image:", error);
-  }
-}
-
-// TODO: Delete image from bucket
 
 async function deleteImage(fileUrl) {
   // write code here
@@ -132,16 +79,16 @@ const getAllChatDetail = async (req, res) => {
     const chatInfo = await ChatInfo.findById(chatInfoId)
       .populate("chatContent")
       .lean();
-    const chatImageList = await Image.find({
-      _id: { $in: chatInfo.imageList },
-    });
-    if (!chatInfo || !chatImageList) {
+    // const chatImageList = await Image.find({
+    //   _id: { $in: chatInfo.imageList },
+    // });
+    if (!chatInfo) {
       return sendResponse(res, 404, { message: "Chat not found" });
     }
     const filterChatContent = chatInfo.chatContent.map((chat, i) => ({
       userChat: chat.sender,
       botChat: chat.botResponse,
-      imageSrc: chatImageList[i] ? chatImageList[i].imageURL : null,
+      imageSrc: chat.imageURL,
     }));
 
     sendResponse(res, 200, filterChatContent);
@@ -206,44 +153,43 @@ const clearChat = async (req, res) => {
   }
 };
 
-const uploadImageToStorage = async (req, res) => {
-  const { chatId } = req.body;
-  const imageUpload = req.file;
+// const uploadImageToStorage = async (req, res) => {
+//   const { chatId } = req.body;
+//   const imageUpload = req.file;
 
-  try {
-    if (!imageUpload || !chatId) {
-      removeDataFromUploadsFolder(imageUpload.filename);
-      sendResponse(res, 500, { message: "Upload file to server fail" });
-      return;
-    }
-    const imageStore = await uploadImage(imageUpload.path);
-    if (!imageStore) {
-      removeDataFromUploadsFolder(imageUpload.filename);
-      sendResponse(res, 500, { message: "Upload file to storage fail" });
-      return;
-    }
-    const chatInfo = await ChatInfo.findById(chatId);
+//   try {
+//     if (!imageUpload || !chatId) {
+//       sendResponse(res, 500, { message: "Upload file to server fail" });
+//       return;
+//     }
+//     const imageStore = await uploadImage(
+//       imageUpload.buffer,
+//       imageUpload.mimetype
+//     );
+//     if (!imageStore) {
+//       sendResponse(res, 500, { message: "Upload file to storage fail" });
+//       return;
+//     }
+//     const chatInfo = await ChatInfo.findById(chatId);
 
-    const newImage = await Image({
-      imageName: imageUpload.originalname,
-      imageURL: imageStore.previewUrl,
-    });
+//     const newImage = await Image({
+//       imageName: imageUpload.originalname,
+//       imageURL: imageStore.previewUrl,
+//     });
 
-    chatInfo.imageList.push(newImage);
-    await newImage.save();
-    await chatInfo.save();
-    removeDataFromUploadsFolder(imageUpload.filename);
-    sendResponse(res, 200, {
-      source: {
-        imageSrc: imageStore.blobUrl,
-        previewSrc: imageStore.previewUrl,
-      },
-    });
-  } catch (error) {
-    removeDataFromUploadsFolder(imageUpload.filename);
-    res.status(500).json({ error: error.toString() });
-  }
-};
+//     chatInfo.imageList.push(newImage);
+//     await newImage.save();
+//     await chatInfo.save();
+//     sendResponse(res, 200, {
+//       source: {
+//         imageSrc: imageStore.blobUrl,
+//         previewSrc: imageStore.previewUrl,
+//       },
+//     });
+//   } catch (error) {
+//     res.status(500).json({ error: error.toString() });
+//   }
+// };
 
 const removeImageStore = async (req, res) => {
   const { imageId, chatId } = req.body;
@@ -272,6 +218,5 @@ export const chatInfoController = {
   getChat,
   clearChat,
   getAllChatDetail,
-  uploadImageToStorage,
   removeImageStore,
 };

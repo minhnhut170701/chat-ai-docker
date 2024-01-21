@@ -17,10 +17,15 @@ export const chatDetailSliceCreate = async (data: {
   userInput: string;
   role: string;
   chatId: string;
-  image?: string;
+  image?: any;
 }) => {
   try {
-    await chatDetailApi.createChat(data);
+    const formData = new FormData();
+    formData.append("userInput", data.userInput);
+    formData.append("chatId", data.chatId);
+    formData.append("role", data.role);
+    formData.append("file", data.image);
+    await chatDetailApi.createChat(formData);
   } catch (error) {
     return error;
   }
@@ -29,10 +34,14 @@ export const chatDetailSliceCreate = async (data: {
 export const continueChat = async (data: {
   chatId: string;
   inputChat: string;
-  image?: string;
+  image?: any;
 }) => {
   try {
-    await chatDetailApi.continueChat(data);
+    const formData = new FormData();
+    formData.append("file", data.image);
+    formData.append("inputChat", data.inputChat);
+    formData.append("chatId", data.chatId);
+    await chatDetailApi.continueChat(formData);
   } catch (error) {
     return error;
   }

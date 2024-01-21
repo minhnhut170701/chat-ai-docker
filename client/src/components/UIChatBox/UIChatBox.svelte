@@ -1,6 +1,7 @@
 <script lang="ts">
   import logoBot from "../../assets/logo.png";
   import userImg from "../../assets/user-img.avif";
+  import ImageChat from "../ImageChat/ImageChat.svelte";
 
   export let contentChat = "";
   export let typeChat = "";
@@ -21,11 +22,12 @@
           <p>{contentChat || ""}</p>
           {#if imageChat}
             <div class="p-4">
-              <img
+              <!-- <img
                 src={imageChat}
                 alt="User Upload"
                 class="w-40 h-40 rounded-xl"
-              />
+              /> -->
+              <ImageChat src={imageChat} />
             </div>
           {/if}
         </div>
