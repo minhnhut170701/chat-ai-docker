@@ -48,25 +48,20 @@
     try {
       const detailData = await getChatInfoDetail(chatId);
       currentChatId = chatId;
-      chatDetail = detailData;
-      if (newPage) loadingNewPage = false;
-    } catch (error) {
-      console.log(error);
-      if (newPage) loadingNewPage = false;
-    }
-  };
-
-  const setChatDetailData = async () => {
-    //  chatDetail = [...chatDetail, { userChat, botChat, imageSrc: imageSrc ? imageSrc : ""}]
-    try {
-      const detailData = await getChatInfoDetail(currentChatId);
-      if (chatDetail.length > 0) {
-        chatDetail[chatDetail.length - 1].botChat =
-          detailData[detailData.length - 1].botChat;
+      if (newPage) {
+        chatDetail = detailData;
+      } else {
+        chatDetail = [
+          ...chatDetail,
+          {
+            botChat: detailData[detailData.length - 1].botChat,
+          },
+        ];
       }
-      //  chatDetail = [...chatDetail, { userChat: chatInput, imageSrc: imageData }];
+      if (newPage) loadingNewPage = false;
     } catch (error) {
       console.log(error);
+      if (newPage) loadingNewPage = false;
     }
   };
 
@@ -101,12 +96,10 @@
 
   const continueExistingChat = async (data: any) => {
     await continueChat(data);
-    // await getChatDetail(currentChatId, false);
   };
 
   const createNewChat = async (dataNewChat: any) => {
     await chatDetailSliceCreate(dataNewChat);
-    // await getChatDetail(currentChatId, false);
   };
 
   const handleChat = async (newChat: boolean) => {
@@ -145,7 +138,9 @@
       ];
       if (currentChatId) {
         previousChatInputs[currentChatId] = chatInput;
+
         chatInput = "";
+
         clearPreviewImage();
         if (chatDetail.length > 0) {
           await handleChat(false);
@@ -153,14 +148,14 @@
           await handleChat(true);
         }
       } else {
-        await handleAddNewChat();
-        currentChatId = $chatSlice.data[$chatSlice.data.length - 1]._id;
-        previousChatInputs[currentChatId] = chatInput;
-        clearPreviewImage();
+        let chatInputOrigin = chatInput;
         chatInput = "";
+        await handleAddNewChat();
+        previousChatInputs[currentChatId] = chatInputOrigin;
+        clearPreviewImage();
         await handleChat(true);
       }
-      await setChatDetailData();
+      await getChatDetail(currentChatId, false);
       loading = false;
       previousChatInputs[currentChatId] = "";
     } catch (error) {
@@ -193,8 +188,10 @@
   };
 
   function autoExpand() {
-    textarea.style.height = `35px`;
-    // check when the textarea's scrollHeight is bigger than its height
+    if (chatInput.length === 0) {
+      textarea.style.height = `35px`;
+      return;
+    }
     if (textarea.scrollHeight > textarea.offsetHeight) {
       if (textarea.scrollHeight < 150) {
         textarea.style.height = `${textarea.scrollHeight}px`;
@@ -209,7 +206,7 @@
   });
 
   onDestroy(() => {
-    textarea.removeEventListener("input", autoExpand);
+    textarea.addEventListener("input", autoExpand);
   });
 </script>
 

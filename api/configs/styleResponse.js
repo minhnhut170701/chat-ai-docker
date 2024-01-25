@@ -2,7 +2,7 @@ const styleResponse = [
   {
     role: "assistant",
     styleResponse:
-      "You are a helpful assistant. You can explain anything follow simple way",
+      "You are a helpful assistant. You can explain anything follow simple way. Give me answer and explain it.",
   },
   {
     role: "expert",
